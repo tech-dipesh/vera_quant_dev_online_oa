@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -54,3 +54,33 @@ def run_backtest(
 
     result.ideal_realized_pnl = engine.position.realized_pnl
     return result
+
+
+@dataclass
+class WalkForwardFold:
+    fold_index: int
+    prices: list[float]
+    result: BacktestResult
+
+
+def run_walk_forward(
+    engine_factory: Callable[[], ExecutionEngine],
+    prices: list[float],
+    fold_count: int,
+    cost_model: CostModel,
+) -> list[WalkForwardFold]:
+    if fold_count < 1:
+        raise ValueError("fold_count must be at least 1")
+
+    fold_size = len(prices) // fold_count
+    folds = []
+
+    for i in range(fold_count):
+        start = i * fold_size
+        end = start + fold_size if i < fold_count - 1 else len(prices)
+        fold_prices = prices[start:end]
+        engine = engine_factory()
+        result = run_backtest(engine, fold_prices, cost_model)
+        folds.append(WalkForwardFold(fold_index=i, prices=fold_prices, result=result))
+
+    return folds
