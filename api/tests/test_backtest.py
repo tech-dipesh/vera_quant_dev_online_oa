@@ -46,3 +46,28 @@ def test_equity_curve_has_one_point_per_price():
     prices = [100, 98, 96]
     result = run_backtest(GridEngine(_config()), prices, CostModel())
     assert len(result.equity_curve) == len(prices)
+
+
+def test_walk_forward_splits_into_non_overlapping_sequential_folds():
+    from app.backtest.harness import run_walk_forward
+
+    prices = list(range(100, 130))
+    folds = run_walk_forward(
+        lambda: GridEngine(_config()), prices, fold_count=3, cost_model=CostModel()
+    )
+
+    assert len(folds) == 3
+    all_fold_prices = [price for fold in folds for price in fold.prices]
+    assert all_fold_prices == prices
+
+
+def test_walk_forward_gives_each_fold_a_fresh_engine():
+    from app.backtest.harness import run_walk_forward
+
+    prices = [100.0] * 10 + [90.0] * 10
+    folds = run_walk_forward(
+        lambda: GridEngine(_config()), prices, fold_count=2, cost_model=CostModel()
+    )
+
+    assert folds[0].result.fills == []
+    assert len(folds[1].result.fills) >= 1

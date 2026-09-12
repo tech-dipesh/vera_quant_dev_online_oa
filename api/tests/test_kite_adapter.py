@@ -1,3 +1,4 @@
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -55,12 +56,54 @@ def test_token_exception_raises_clear_error(mock_kite_cls):
 
 
 @patch("app.broker.kite_adapter.KiteConnect")
-def test_reconcile_after_restart_returns_broker_order_history(mock_kite_cls):
+def test_reconcile_after_restart_finds_an_order_missing_locally(mock_kite_cls):
     mock_kite = mock_kite_cls.return_value
-    mock_kite.orders.return_value = [{"order_id": "1"}]
+    mock_kite.orders.return_value = [{"order_id": "1"}, {"order_id": "2"}]
     gateway = KiteOrderGateway(api_key="key", access_token="token")
 
-    assert gateway.reconcile_after_restart() == [{"order_id": "1"}]
+    report = gateway.reconcile_after_restart()
+
+    assert report.missing_locally == ["1", "2"]
+    assert report.missing_at_broker == []
+    assert report.is_clean is False
+
+
+@patch("app.broker.kite_adapter.KiteConnect")
+def test_reconcile_after_restart_is_clean_when_local_and_broker_agree(mock_kite_cls):
+    mock_kite = mock_kite_cls.return_value
+    mock_kite.place_order.return_value = "1"
+    mock_kite.orders.return_value = [{"order_id": "1"}]
+    gateway = KiteOrderGateway(api_key="key", access_token="token")
+    gateway.place_order(_request())
+
+    report = gateway.reconcile_after_restart()
+
+    assert report.known_to_both == ["1"]
+    assert report.is_clean is True
+
+
+@patch("app.broker.kite_adapter.time.sleep", lambda seconds: None)
+@patch("app.broker.kite_adapter.KiteConnect")
+def test_place_order_is_rate_limited(mock_kite_cls):
+    mock_kite = mock_kite_cls.return_value
+    mock_kite.place_order.return_value = "KITE-1"
+    gateway = KiteOrderGateway(api_key="key", access_token="token", rate_limit_per_second=5)
+    gateway._rate_limiter.capacity = 1
+    gateway._rate_limiter._tokens = 1
+
+    gateway.place_order(_request())
+    second_request = OrderRequest(
+        client_order_id="client-2",
+        symbol="NIFTY24SEPFUT",
+        exchange="NFO",
+        side=Side.LONG,
+        quantity=1,
+    )
+    start = time.monotonic()
+    gateway.place_order(second_request)
+    elapsed = time.monotonic() - start
+
+    assert elapsed >= 0.15
 
 
 @patch("app.broker.kite_adapter.KiteTicker")
