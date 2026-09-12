@@ -12,3 +12,7 @@ def ema(df: pd.DataFrame, length: int = 20) -> pd.Series:
 
 def rsi(df: pd.DataFrame, length: int = 14) -> pd.Series:
     return ta.rsi(df["close"], length=length)
+
+
+def obv(df: pd.DataFrame) -> pd.Series:
+    return ta.obv(df["close"], df["volume"])

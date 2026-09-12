@@ -1,10 +1,12 @@
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from kiteconnect import KiteConnect, KiteTicker
 from kiteconnect.exceptions import NetworkException, TokenException
 
 from app.broker.models import OrderAck, OrderRequest, Tick
+from app.broker.rate_limiter import TokenBucket
 
 
 class KiteAuthSession:
@@ -20,11 +22,29 @@ class KiteAuthSession:
         return self.access_token
 
 
+@dataclass(frozen=True)
+class ReconciliationReport:
+    known_to_both: list[str] = field(default_factory=list)
+    missing_locally: list[str] = field(default_factory=list)
+    missing_at_broker: list[str] = field(default_factory=list)
+
+    @property
+    def is_clean(self) -> bool:
+        return not self.missing_locally and not self.missing_at_broker
+
+
 class KiteOrderGateway:
-    def __init__(self, api_key: str, access_token: str, max_retries: int = 3) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        access_token: str,
+        max_retries: int = 3,
+        rate_limit_per_second: float = 8,
+    ) -> None:
         self._kite = KiteConnect(api_key=api_key, access_token=access_token)
         self._max_retries = max_retries
         self._acks: dict[str, OrderAck] = {}
+        self._rate_limiter = TokenBucket(rate_per_second=rate_limit_per_second, capacity=10)
 
     def place_order(self, request: OrderRequest) -> OrderAck:
         if request.client_order_id in self._acks:
@@ -34,6 +54,7 @@ class KiteOrderGateway:
         last_error: Exception | None = None
 
         for attempt in range(self._max_retries):
+            self._rate_limiter.acquire()
             try:
                 broker_order_id = self._kite.place_order(
                     variety=self._kite.VARIETY_REGULAR,
@@ -68,8 +89,15 @@ class KiteOrderGateway:
     def get_positions(self) -> dict:
         return self._kite.positions()
 
-    def reconcile_after_restart(self) -> list[dict]:
-        return self._kite.orders()
+    def reconcile_after_restart(self) -> ReconciliationReport:
+        broker_orders = self._kite.orders()
+        broker_ids = {order["order_id"] for order in broker_orders}
+        local_ids = {ack.broker_order_id for ack in self._acks.values()}
+        return ReconciliationReport(
+            known_to_both=sorted(broker_ids & local_ids),
+            missing_locally=sorted(broker_ids - local_ids),
+            missing_at_broker=sorted(local_ids - broker_ids),
+        )
 
 
 class KiteMarketDataFeed:

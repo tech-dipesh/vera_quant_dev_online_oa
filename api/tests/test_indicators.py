@@ -1,13 +1,14 @@
 import pandas as pd
 
-from app.ta.indicators import atr, ema, rsi
+from app.ta.indicators import atr, ema, obv, rsi
 
 
 def _sample_df(rows: int = 30) -> pd.DataFrame:
     close = [100 + i * 0.5 for i in range(rows)]
     high = [c + 1 for c in close]
     low = [c - 1 for c in close]
-    return pd.DataFrame({"high": high, "low": low, "close": close})
+    volume = [1000 + i * 10 for i in range(rows)]
+    return pd.DataFrame({"high": high, "low": low, "close": close, "volume": volume})
 
 
 def test_atr_returns_series_matching_length():
@@ -29,3 +30,9 @@ def test_rsi_bounded_between_0_and_100():
     valid = result.dropna()
     assert (valid >= 0).all()
     assert (valid <= 100).all()
+
+
+def test_obv_rises_when_price_and_volume_both_rise():
+    df = _sample_df()
+    result = obv(df)
+    assert result.iloc[-1] > result.iloc[1]
