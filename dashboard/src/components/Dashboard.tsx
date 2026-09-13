@@ -24,6 +24,7 @@ const MAX_EQUITY_POINTS = 200;
 export default function Dashboard() {
   const [status, setStatus] = useState<DemoStatus | null>(null);
   const [positions, setPositions] = useState<Positions>({});
+  const [regime, setRegime] = useState<MacroRegime | null>(null);
   const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [fills, setFills] = useState<FillEvent[]>([]);
   const [equitySeries, setEquitySeries] = useState<number[]>([]);
@@ -34,6 +35,7 @@ export default function Dashboard() {
     const [nextStatus, nextPositions, nextRegime] = await Promise.all([
       fetchDemoStatus(),
       fetchPositions(),
+      fetchMacroRegime(),
     ]);
     setStatus(nextStatus);
     setPositions(nextPositions);
@@ -111,11 +113,29 @@ export default function Dashboard() {
         onFlatten={handleFlatten}
       />
 
-     <div className="mt-8">
-        <h2 className="text-sm text-ink-dim">combined realized P&amp;L</h2>
-             </div>
+      <div className="mt-6 flex items-center justify-between">
+        <h2 className="text-sm text-ink-dim">engines</h2>
+        <MacroRegimeBadge regime={regime} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {engineNames.map((name) => (
+          <EnginePanel key={name} name={name} position={positions[name] ?? null} />
+        ))}
+      </div>
 
       <div className="mt-8">
+        <h2 className="text-sm text-ink-dim">combined realized P&amp;L</h2>
+        <div className="mt-2 rounded border border-line bg-surface-1 p-4">
+          <EquitySparkline values={equitySeries} />
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-sm text-ink-dim">trade blotter</h2>
+        <div className="mt-2 rounded border border-line bg-surface-1 p-4">
+          <BlotterFeed fills={fills} />
+        </div>
       </div>
     </main>
   );
