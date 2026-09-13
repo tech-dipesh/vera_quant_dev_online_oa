@@ -1,5 +1,5 @@
 import pandas as pd
-import pandas_ta as ta
+import pandas_ta_classic as ta
 
 
 def atr(df: pd.DataFrame, length: int = 14) -> pd.Series:
