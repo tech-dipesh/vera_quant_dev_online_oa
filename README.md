@@ -6,12 +6,11 @@
 # Quant System
 
 <p align="center">
-  <img src="docs/homepage.png" width="720" alt="Live demo run: engines placing fills as ticks stream in" />
+  <img src="./homepage.png" width="720" alt="Live demo run: engines placing fills as ticks stream in" />
 </p>
 
-*Replace `docs/demo.gif` with a 5-8s cropped, auto-playing capture: hit
 `/demo/start`, let a few fills land on the grid and stop-and-reverse rows,
-then flatten. That's the whole story in one loop — no narration needed.*
+then flatten. That's the whole story in one loop — no narration needed.
 
 ## Data flow
 
@@ -91,11 +90,18 @@ Set `DATABASE_URL` (`postgresql+psycopg://…`) and `REDIS_URL` in `api/.env` fi
 
 | Resource | Root dir | Build | Start |
 |---|---|---|---|
-| Postgres | — | — | — |
-| Redis (Key Value) | — | — | — |
 | API (Python) | `api` | `pip install -r requirements.txt` | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
-| Dashboard (Node) | `dashboard` | `pnpm install && pnpm build` | `pnpm start` |
+| Dashboard (Next.js) | `dashboard` | `pnpm install && pnpm build` | `pnpm start` |
 
+
+## Backup Server Run When It Doesn't Work That Way Due to Python Config (Window Support):
+i. `cd api` (Make Sure Python Installed )
+ii. `.venv/Scripts/python.exe -m pip install --upgrade pip`
+iii. `.venv/Scripts/python.exe -m pip install -r requirements.txt -r requirements-dev.txt`
+iv. `.venv/Scripts/python.exe -m alembic upgrade head`
+v. `.venv/Scripts/python.exe -m uvicorn app.main:app --reload --port 8000`
+
+## Next Steps:
 - API pre-deploy command: `alembic upgrade head`
 - API env: `DATABASE_URL` (add `+psycopg`), `REDIS_URL`, `CORS_ORIGINS=<dashboard URL>`
 - Dashboard env: `NEXT_PUBLIC_API_URL=<api URL>`, `NEXT_PUBLIC_WS_URL=wss://<api host>/ws/live`
