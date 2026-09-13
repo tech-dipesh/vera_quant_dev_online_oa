@@ -16,7 +16,7 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    origins = os.environ.get("CORS_ORIGINS", "https://vera-quant.onrender.com/")
+    origins = os.environ.get("CORS_ORIGINS", "*")
     return Settings(
         database_url=os.environ.get(
             "DATABASE_URL", "postgresql+psycopg://quant:quant@localhost:5432/quant_system"
